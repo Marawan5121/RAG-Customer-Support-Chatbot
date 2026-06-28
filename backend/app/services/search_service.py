@@ -246,15 +246,63 @@ class SearchService:
         top_k: Optional[int] = None,
         intent_filter: Optional[str] = None,
     ) -> List[dict]:
-        """Run a hybrid (BM25 + vector) query with semantic ranking.
+        """Run a hybrid (BM25 + vector) query with Azure semantic ranking.
 
-        Wired here for completeness; the retrieval logic is implemented in the
-        Milestone 2 RAG pipeline work.
+        Combines the full-text keyword leg (``search_text``) with the HNSW vector
+        leg (``vector_queries``) and applies L2 semantic ranking via the
+        configured semantic configuration.
+
+        Args:
+            query_text: Raw user query for the BM25 (keyword) leg.
+            query_vector: 768-dim query embedding for the vector (HNSW) leg.
+            top_k: Number of chunks to return; defaults to the configured value (4).
+            intent_filter: Optional OData filter to scope results to one intent.
+
+        Returns:
+            A list of chunk dicts ordered by relevance (empty when not ready).
         """
         if self._client is None:
             logger.warning("hybrid_search called but Azure AI Search client is not ready.")
             return []
-        raise NotImplementedError("Hybrid retrieval will be implemented in Milestone 2.")
+
+        from azure.search.documents.models import QueryType, VectorizedQuery
+
+        top_k = top_k or self._settings.azure_search_top_k
+
+        # Vector (HNSW) leg of the hybrid query.
+        vector_query = VectorizedQuery(
+            vector=query_vector,
+            k_nearest_neighbors=top_k,
+            fields=self._settings.azure_search_vector_field,
+        )
+
+        results = await self._client.search(
+            search_text=query_text,  # BM25 keyword leg
+            vector_queries=[vector_query],  # HNSW vector leg
+            query_type=QueryType.SEMANTIC,  # enable L2 semantic ranking
+            semantic_configuration_name=self._settings.azure_search_semantic_config,
+            filter=f"intent_label eq '{intent_filter}'" if intent_filter else None,
+            select=["chunk_id", "content_text", "intent_label", "category", "source_row_id"],
+            top=top_k,
+        )
+
+        chunks: List[dict] = []
+        async for doc in results:
+            chunks.append(
+                {
+                    "chunk_id": doc.get("chunk_id"),
+                    "content_text": doc.get("content_text"),
+                    "intent_label": doc.get("intent_label"),
+                    "category": doc.get("category"),
+                    "source_row_id": doc.get("source_row_id"),
+                    # Prefer the semantic reranker score; fall back to the search score.
+                    "relevance_score": doc.get("@search.reranker_score")
+                    or doc.get("@search.score"),
+                }
+            )
+
+        logger.info("Hybrid search returned %d chunks for query.", len(chunks))
+        return chunks
 
     async def ping(self) -> bool:
         """Lightweight health probe used by the /health endpoint."""

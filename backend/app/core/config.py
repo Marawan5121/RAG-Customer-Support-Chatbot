@@ -40,9 +40,9 @@ class Settings(BaseSettings):
     azure_search_endpoint: str = Field(default="")
     azure_search_api_key: str = Field(default="")
     azure_search_index_name: str = Field(default="support-knowledge-index")
-    azure_search_semantic_config: str = Field(default="support-semantic-config")
+    azure_search_semantic_config: str = Field(default="mySemanticConfig")
     azure_search_vector_field: str = Field(default="content_vector")
-    azure_search_top_k: int = Field(default=5)
+    azure_search_top_k: int = Field(default=4)
 
     # ------------------------------------------------------------------
     # Azure Cosmos DB (session & message chat history)
@@ -67,7 +67,7 @@ class Settings(BaseSettings):
     # Google Generative AI (Gemini 1.5 Flash generation + 768-dim embeddings)
     # ------------------------------------------------------------------
     google_api_key: str = Field(default="")
-    gemini_model: str = Field(default="gemini-1.5-flash")
+    gemini_model: str = Field(default="gemini-2.0-flash")
     gemini_embedding_model: str = Field(default="text-embedding-004")
     embedding_dimensions: int = Field(default=768)
 

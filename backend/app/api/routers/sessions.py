@@ -13,17 +13,17 @@ async def get_session(
     session_id: str,
     cosmos: CosmosService = Depends(get_cosmos_service),
 ) -> dict:
-    """Return a session transcript by id.
-
-    Retrieval from Cosmos DB is wired but not yet implemented (Milestone 2/3).
-    """
+    """Return a session transcript (session document + ordered messages)."""
     if not cosmos.is_configured:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Cosmos DB is not configured.",
         )
 
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="Session retrieval will be implemented in a later milestone.",
-    )
+    session = await cosmos.get_session(session_id)
+    if session is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Session '{session_id}' not found.",
+        )
+    return session
