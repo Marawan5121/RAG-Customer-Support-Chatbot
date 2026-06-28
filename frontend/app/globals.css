@@ -1,0 +1,26 @@
+/* Minimal global styles for the chat scaffold. */
+:root {
+  --navy: #1f3864;
+  --azure: #2e75b6;
+  --bot-bubble: #f0f4ff;
+  --bg: #f0f4f8;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  background: var(--bg);
+  color: #1e293b;
+  line-height: 1.6;
+}
+
+main {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 2rem 1rem;
+}

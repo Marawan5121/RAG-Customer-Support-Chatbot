@@ -1,0 +1,32 @@
+# ---------------------------------------------------------------------------
+# Customer Support RAG Chatbot - Backend dependencies
+# Python 3.11+
+# ---------------------------------------------------------------------------
+
+# --- Web framework & ASGI server ---
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+
+# --- Settings, validation & data models ---
+pydantic==2.10.4
+pydantic-settings==2.7.1
+python-dotenv==1.0.1
+
+# --- HTTP client & resilience ---
+httpx==0.28.1
+tenacity==9.0.0
+
+# --- Azure SDKs (official Microsoft packages) ---
+azure-search-documents==11.5.2   # Azure AI Search (hybrid vector + BM25 + semantic ranking)
+azure-cosmos==4.9.0              # Azure Cosmos DB (session & message history)
+azure-identity==1.19.0          # DefaultAzureCredential / managed identity support
+azure-core==1.32.0              # Shared Azure SDK primitives
+
+# --- Azure Cache for Redis ---
+redis==5.2.1                    # redis-py with asyncio + TLS support
+
+# --- Google Generative AI (Gemini 1.5 Flash + embeddings, 768-dim) ---
+google-generativeai==0.8.3
+
+# --- Observability ---
+structlog==24.4.0

@@ -1,0 +1,63 @@
+# ---------------------------------------------------------------------------
+# Local development orchestration for the Customer Support RAG Chatbot.
+#
+# Services:
+#   - backend  : FastAPI inference API (Azure AI Search / Cosmos DB / Gemini)
+#   - frontend : Next.js chat UI
+#   - redis    : local Azure Cache for Redis substitute (response caching)
+#
+# Azure AI Search and Cosmos DB are managed cloud services and are reached via
+# the endpoints/keys supplied in the .env file (no local container for them).
+# ---------------------------------------------------------------------------
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: support-rag-backend
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./backend/.env
+    environment:
+      # Point the backend at the bundled Redis container by default.
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      REDIS_SSL: "false"
+    depends_on:
+      redis:
+        condition: service_healthy
+    # Hot-reload the source during development.
+    volumes:
+      - ./backend:/app
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: support-rag-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_API_BASE_URL: http://localhost:8000/api/v1
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: support-rag-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  redis-data:
