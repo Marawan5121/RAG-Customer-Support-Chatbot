@@ -28,5 +28,10 @@ redis==5.2.1                    # redis-py with asyncio + TLS support
 # --- Google Generative AI (Gemini 1.5 Flash + embeddings, 768-dim) ---
 google-generativeai==0.8.3
 
+# --- Data ingestion, preprocessing & chunking (Milestone 1 / 2) ---
+datasets==3.2.0                 # Hugging Face datasets - Bitext corpus ingestion
+langchain-text-splitters==0.3.4 # RecursiveCharacterTextSplitter for chunking study
+tiktoken==0.8.0                 # Token counter backing the token-based chunk sizes
+
 # --- Observability ---
 structlog==24.4.0

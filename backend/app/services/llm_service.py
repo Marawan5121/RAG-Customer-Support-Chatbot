@@ -1,15 +1,19 @@
 """Google Generative AI service - Gemini 1.5 Flash generation and 768-dim embeddings.
 
-Configuration placeholder built on the official ``google-generativeai`` library.
-The same service exposes both the embedding model (used to build vectors for
-Azure AI Search) and the generation model (used for grounded responses).
+Built on the official ``google-generativeai`` library. The same service exposes
+both the embedding model (used to build vectors for Azure AI Search) and the
+generation model (used for grounded responses).
 
 Note: the ``google-generativeai`` SDK is synchronous, so blocking calls are
-offloaded to a worker thread with ``asyncio.to_thread`` to keep the event loop free.
+offloaded to a worker thread with ``asyncio.to_thread`` to keep the event loop
+free. Embedding batches are retried with exponential backoff to absorb transient
+rate-limit / network errors from the free tier.
 """
 
 import asyncio
 from typing import List
+
+from tenacity import retry, stop_after_attempt, wait_exponential
 
 from app.core.config import Settings
 from app.core.logging import get_logger
@@ -53,8 +57,11 @@ class LLMService:
         self._genai = None
         self._configured = False
 
+    # ------------------------------------------------------------------
+    # Embeddings
+    # ------------------------------------------------------------------
     async def embed_text(self, text: str) -> List[float]:
-        """Generate a 768-dim embedding vector for the given text."""
+        """Generate a 768-dim embedding for a single query (retrieval_query task)."""
         if not self._configured:
             raise RuntimeError("LLMService is not configured.")
 
@@ -66,9 +73,52 @@ class LLMService:
             )
             return result["embedding"]
 
-        # TODO (Milestone 2): switch task_type to 'retrieval_document' when indexing.
         return await asyncio.to_thread(_embed)
 
+    async def embed_documents(self, texts: List[str]) -> List[List[float]]:
+        """Generate 768-dim embeddings for many documents (retrieval_document task).
+
+        Texts are processed in batches of ``embedding_batch_size`` to respect API
+        limits. Each batch is retried with exponential backoff. The returned list
+        preserves the input order and length.
+        """
+        if not self._configured:
+            raise RuntimeError("LLMService is not configured.")
+
+        batch_size = max(1, self._settings.embedding_batch_size)
+        vectors: List[List[float]] = []
+
+        for start in range(0, len(texts), batch_size):
+            batch = texts[start : start + batch_size]
+            batch_vectors = await asyncio.to_thread(self._embed_batch, batch)
+            vectors.extend(batch_vectors)
+            logger.info(
+                "Embedded %d/%d documents.", min(start + batch_size, len(texts)), len(texts)
+            )
+
+        return vectors
+
+    @retry(
+        reraise=True,
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=2, min=2, max=30),
+    )
+    def _embed_batch(self, batch: List[str]) -> List[List[float]]:
+        """Embed a single batch of documents (synchronous; runs in a worker thread)."""
+        result = self._genai.embed_content(
+            model=self._settings.gemini_embedding_model,
+            content=batch,
+            task_type="retrieval_document",
+        )
+        embeddings = result["embedding"]
+        # When a list of inputs is supplied the SDK returns a list of vectors.
+        if batch and isinstance(embeddings[0], (int, float)):
+            embeddings = [embeddings]
+        return embeddings
+
+    # ------------------------------------------------------------------
+    # Generation
+    # ------------------------------------------------------------------
     async def generate(self, prompt: str) -> str:
         """Generate a grounded response with Gemini 1.5 Flash."""
         if not self._configured:

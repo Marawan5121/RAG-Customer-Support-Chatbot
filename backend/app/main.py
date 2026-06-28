@@ -1,8 +1,8 @@
 """FastAPI application entrypoint.
 
 Creates the app, configures middleware, registers routers and manages the
-lifecycle of the shared services (Azure AI Search, Cosmos DB, Redis, Gemini)
-via the lifespan context manager.
+lifecycle of the shared services (Azure AI Search, Cosmos DB, Redis, Gemini,
+plus the preprocessing/indexing orchestration) via the lifespan context manager.
 """
 
 from contextlib import asynccontextmanager
@@ -10,12 +10,14 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routers import chat, health, sessions
+from app.api.routers import chat, health, index, sessions
 from app.core.config import get_settings
 from app.core.logging import configure_logging, get_logger
 from app.services.cache_service import CacheService
 from app.services.cosmos_service import CosmosService
+from app.services.indexing_service import IndexingService
 from app.services.llm_service import LLMService
+from app.services.preprocessing_service import PreprocessingService
 from app.services.search_service import SearchService
 
 logger = get_logger(__name__)
@@ -33,6 +35,13 @@ async def lifespan(app: FastAPI):
     app.state.cosmos_service = CosmosService(settings)
     app.state.cache_service = CacheService(settings)
     app.state.llm_service = LLMService(settings)
+    app.state.preprocessing_service = PreprocessingService(settings)
+    app.state.indexing_service = IndexingService(
+        settings=settings,
+        search_service=app.state.search_service,
+        llm_service=app.state.llm_service,
+        preprocessing_service=app.state.preprocessing_service,
+    )
 
     # Establish connections (each gracefully no-ops when not configured).
     await app.state.search_service.connect()
@@ -74,6 +83,7 @@ def create_app() -> FastAPI:
     app.include_router(health.router, prefix=settings.api_v1_prefix)
     app.include_router(chat.router, prefix=settings.api_v1_prefix)
     app.include_router(sessions.router, prefix=settings.api_v1_prefix)
+    app.include_router(index.router, prefix=settings.api_v1_prefix)
 
     return app
 

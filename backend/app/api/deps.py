@@ -9,6 +9,7 @@ from fastapi import Request
 
 from app.services.cache_service import CacheService
 from app.services.cosmos_service import CosmosService
+from app.services.indexing_service import IndexingService
 from app.services.llm_service import LLMService
 from app.services.search_service import SearchService
 
@@ -31,3 +32,8 @@ def get_cache_service(request: Request) -> CacheService:
 def get_llm_service(request: Request) -> LLMService:
     """Return the shared Google Generative AI service instance."""
     return request.app.state.llm_service
+
+
+def get_indexing_service(request: Request) -> IndexingService:
+    """Return the shared indexing orchestration service instance."""
+    return request.app.state.indexing_service

@@ -71,6 +71,21 @@ class Settings(BaseSettings):
     gemini_embedding_model: str = Field(default="text-embedding-004")
     embedding_dimensions: int = Field(default=768)
 
+    # ------------------------------------------------------------------
+    # Data ingestion, preprocessing & indexing (Milestone 1 / 2)
+    # ------------------------------------------------------------------
+    huggingface_dataset: str = Field(
+        default="bitext/Bitext-customer-support-llm-chatbot-training-dataset"
+    )
+    # Default chunking profile key: "256", "512" or "1024" (token sizes)
+    default_chunk_profile: str = Field(default="512")
+    # When True, compose the customer query together with the support answer into
+    # each indexed document; when False, index the support answer only.
+    index_include_instruction: bool = Field(default=False)
+    # Batch sizes for embedding requests and Azure AI Search uploads
+    embedding_batch_size: int = Field(default=100)
+    upload_batch_size: int = Field(default=500)
+
     @field_validator("cors_origins", mode="before")
     @classmethod
     def _split_cors_origins(cls, value: object) -> object:
